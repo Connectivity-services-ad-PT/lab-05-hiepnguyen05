@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="FIT4110_lab03_vision" tests="14" time="2.035">
+  <testsuite name="00_Health / 1. GET /health - Happy Path" id="b902d316-2e79-490b-8403-869d0745f936" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.055">
+    <testcase name="Status code is 200" time="0.055" classname="00Health1GetHealthHappyPath"/>
+    <testcase name="Service is ok" time="0.055" classname="00Health1GetHealthHappyPath"/>
+  </testsuite>
+  <testsuite name="01_Functional / 2. POST /vision/detect - Happy Path (Object Detection)" id="0add355e-7723-4ef1-9215-2fac186b756b" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="1.888">
+    <testcase name="Status code is 201 Created" time="1.888" classname="01Functional2PostVisionDetectHappyPathObjectDetection"/>
+    <testcase name="Response has detectionId and objects list" time="1.888" classname="01Functional2PostVisionDetectHappyPathObjectDetection"/>
+  </testsuite>
+  <testsuite name="01_Functional / 3. POST /vision/face-match - Happy Path (Face Match with Liveness)" id="e81b7b70-2820-4b50-b2e6-6b1c1bd53fc2" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.004">
+    <testcase name="Status code is 201 Created" time="0.004" classname="01Functional3PostVisionFaceMatchHappyPathFaceMatchWithLiveness"/>
+    <testcase name="Face match response is valid and includes liveness info" time="0.004" classname="01Functional3PostVisionFaceMatchHappyPathFaceMatchWithLiveness"/>
+  </testsuite>
+  <testsuite name="01_Functional / 4. GET /vision/detections/{id} - Get Detection Detail" id="f91e54b5-8361-4a83-b9b9-5abd9442648e" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.003">
+    <testcase name="Status code is 200 OK" time="0.003" classname="01Functional4GetVisionDetectionsIdGetDetectionDetail"/>
+    <testcase name="Response is a valid detection details object" time="0.003" classname="01Functional4GetVisionDetectionsIdGetDetectionDetail"/>
+  </testsuite>
+  <testsuite name="01_Functional / 5. GET /vision/models/info - AI Models Info" id="c93e51ad-2c1d-4c13-a3dd-20e979ff2b2a" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.004">
+    <testcase name="Status code is 200 OK" time="0.004" classname="01Functional5GetVisionModelsInfoAiModelsInfo"/>
+    <testcase name="Response returns model lists" time="0.004" classname="01Functional5GetVisionModelsInfoAiModelsInfo"/>
+  </testsuite>
+  <testsuite name="02_Auth / 6. POST /vision/detect - Missing Authorization Header" id="7cf835a5-d575-4a10-a913-7f49e77e9053" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.004">
+    <testcase name="Unauthorized request returns 401 or 403" time="0.004" classname="02Auth6PostVisionDetectMissingAuthorizationHeader"/>
+    <testcase name="Response body follows ProblemDetails model" time="0.004" classname="02Auth6PostVisionDetectMissingAuthorizationHeader"/>
+  </testsuite>
+  <testsuite name="02_Auth / 7. POST /vision/detect - Invalid Token Format" id="85e3ddbc-14da-4944-aa26-ebb413b4f8fd" timestamp="2026-06-09T04:17:44.940Z" tests="1" failures="0" errors="0" time="0.004">
+    <testcase name="Invalid token returns 401 or 403 (or 201 on mock due to Prism limitations)" time="0.004" classname="02Auth7PostVisionDetectInvalidTokenFormat"/>
+  </testsuite>
+  <testsuite name="03_Negative / 8. POST /vision/detect - Missing required imageRef" id="faa25adf-f271-476c-a3e5-b60dd646567e" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.004">
+    <testcase name="Missing imageRef returns 400 or 422 client error" time="0.004" classname="03Negative8PostVisionDetectMissingRequiredImageRef"/>
+    <testcase name="Error response follows Problem Details format" time="0.004" classname="03Negative8PostVisionDetectMissingRequiredImageRef"/>
+  </testsuite>
+  <testsuite name="03_Negative / 9. POST /vision/detect - Invalid cameraId format (Negative)" id="852ae28a-7492-4563-a427-500f786577bf" timestamp="2026-06-09T04:17:44.940Z" tests="1" failures="0" errors="0" time="0.004">
+    <testcase name="Invalid cameraId returns 400 or 422 client error" time="0.004" classname="03Negative9PostVisionDetectInvalidCameraIdFormatNegative"/>
+  </testsuite>
+  <testsuite name="04_Boundary_Reliability / 10. POST /vision/detect - motionConfidence > 1.0 (Out of bounds)" id="1e9ac00d-b93e-465c-90de-e191985353a2" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.003">
+    <testcase name="Confidence out of bounds returns 400 or 422 client error" time="0.003" classname="04BoundaryReliability10PostVisionDetectMotionConfidence10OutOfBounds"/>
+    <testcase name="Response follows ProblemDetails structure" time="0.003" classname="04BoundaryReliability10PostVisionDetectMotionConfidence10OutOfBounds"/>
+  </testsuite>
+  <testsuite name="04_Boundary_Reliability / 11. GET /vision/detections - large pagination limit boundary" id="577e63f6-a3fd-444c-9ae0-f8454885de70" timestamp="2026-06-09T04:17:44.940Z" tests="1" failures="0" errors="0" time="0.005">
+    <testcase name="Large pagination limit boundary either succeeds capped or returns 400/422" time="0.005" classname="04BoundaryReliability11GetVisionDetectionsLargePaginationLimitBoundary"/>
+  </testsuite>
+  <testsuite name="05_Consumer_side_Smoke / 12. GET /health - Dependent Service Smoke Test (IoT Ingestion)" id="6a20e41a-2a1c-4cb7-bbd2-ef1f3ea2cef6" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.004">
+    <testcase name="Dependent Mock Server Health returns 200 OK" time="0.004" classname="05ConsumerSideSmoke12GetHealthDependentServiceSmokeTestIoTIngestion"/>
+    <testcase name="Dependent mock health response is valid" time="0.004" classname="05ConsumerSideSmoke12GetHealthDependentServiceSmokeTestIoTIngestion"/>
+  </testsuite>
+  <testsuite name="05_Consumer_side_Smoke / 13. POST /readings - Dependent Ingest Reading Smoke Test" id="e8cf0502-8dc5-4c16-8c34-ae14e47b414b" timestamp="2026-06-09T04:17:44.940Z" tests="2" failures="0" errors="0" time="0.004">
+    <testcase name="Dependent Mock Accept Reading successfully" time="0.004" classname="05ConsumerSideSmoke13PostReadingsDependentIngestReadingSmokeTest"/>
+    <testcase name="Dependent mock reading returns created ID" time="0.004" classname="05ConsumerSideSmoke13PostReadingsDependentIngestReadingSmokeTest"/>
+  </testsuite>
+  <testsuite name="06_Local_only_NonFunctional / 14. POST /vision/detect - GPU response time is below 800ms" id="b52bebfb-cc3c-4716-83de-925af870c2fd" timestamp="2026-06-09T04:17:44.940Z" tests="1" failures="0" errors="0" time="0.049">
+    <testcase name="SLA response time check" time="0.049" classname="06LocalOnlyNonFunctional14PostVisionDetectGpuResponseTimeIsBelow800Ms"/>
+  </testsuite>
+</testsuites>

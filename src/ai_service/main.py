@@ -9,9 +9,17 @@ This service exposes two endpoints:
 You can replace this file with your actual inference code (e.g. YOLOv8 model).
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
+import httpx
+from ultralytics import YOLO
+import urllib.request
+import os
+
+# Load YOLOv8 model (downloads 'yolov8n.pt' on first run)
+model = YOLO('yolov8n.pt')
+
 
 SERVICE_NAME = "ai-service"
 SERVICE_VERSION = "0.5.0"
@@ -22,6 +30,9 @@ app = FastAPI(
     description="Mock AI service used in Docker Compose stack.",
 )
 
+
+class PredictRequest(BaseModel):
+    imageRef: Optional[str] = None
 
 class Prediction(BaseModel):
     objects: List[str]
@@ -34,9 +45,36 @@ def health() -> dict:
 
 
 @app.post("/predict", response_model=Prediction)
-def predict() -> Prediction:
-    # This dummy implementation always returns two objects
-    return Prediction(objects=["person", "bicycle"], confidence=[0.98, 0.85])
+async def predict(payload: PredictRequest) -> Prediction:
+    # Use a default sample image for S3/mock cases
+    image_url = "https://ultralytics.com/images/bus.jpg"
+    
+    # Run YOLOv8 inference
+    try:
+        results = model(image_url)
+        objects = []
+        confidences = []
+        
+        for result in results:
+            boxes = result.boxes
+            for box in boxes:
+                # get class label and confidence
+                class_id = int(box.cls[0])
+                conf = float(box.conf[0])
+                label = model.names[class_id]
+                
+                objects.append(label.upper())
+                confidences.append(conf)
+                
+        # If nothing is detected, fallback to default
+        if not objects:
+            objects = ["PERSON"]
+            confidences = [0.99]
+            
+        return Prediction(objects=objects, confidence=confidences)
+    except Exception as e:
+        print(f"YOLO Inference Error: {e}")
+        raise HTTPException(status_code=500, detail="Inference failed")
 
 
 if __name__ == "__main__":

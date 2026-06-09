@@ -1,0 +1,654 @@
+{
+  "info": {
+    "name": "FIT4110_lab03_vision",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00_Health",
+      "item": [
+        {
+          "name": "1. GET /health - Happy Path",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Service is ok', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('ok');",
+                  "    pm.expect(jsonData.service).to.eql('ai-vision-service');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01_Functional",
+      "item": [
+        {
+          "name": "2. POST /vision/detect - Happy Path (Object Detection)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cameraId\":\"CAM-001\",\"imageRef\":\"s3://camera-frames/gate-01/20260526-080000.jpg\",\"timestamp\":\"2026-05-26T08:00:00Z\",\"motionConfidence\":0.95}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Response has detectionId and objects list', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('detectionId');",
+                  "    pm.expect(jsonData.detectedObjects).to.be.an('array');",
+                  "    pm.environment.set('savedDetectionId', jsonData.detectionId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. POST /vision/face-match - Happy Path (Face Match with Liveness)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cameraId\":\"CAM-002\",\"imageRef\":\"s3://camera-frames/lobby/20260526-080100.jpg\",\"timestamp\":\"2026-05-26T08:01:00Z\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vision/face-match",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "face-match"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Face match response is valid and includes liveness info', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('faceMatched');",
+                  "    pm.expect(jsonData).to.have.property('isLive');",
+                  "    pm.expect(jsonData.isLive).to.be.a('boolean');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. GET /vision/detections/{id} - Get Detection Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detections/{{savedDetectionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detections",
+                "{{savedDetectionId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response is a valid detection details object', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('detectionId');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. GET /vision/models/info - AI Models Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/models/info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "models",
+                "info"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response returns model lists', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02_Auth",
+      "item": [
+        {
+          "name": "6. POST /vision/detect - Missing Authorization Header",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cameraId\":\"CAM-001\",\"imageRef\":\"s3://camera-frames/gate-01/test.jpg\",\"timestamp\":\"2026-05-26T08:00:00Z\",\"motionConfidence\":0.95}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Unauthorized request returns 401 or 403', function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Response body follows ProblemDetails model', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData).to.have.property('title');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. POST /vision/detect - Invalid Token Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid-token-value"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cameraId\":\"CAM-001\",\"imageRef\":\"s3://camera-frames/gate-01/test.jpg\",\"timestamp\":\"2026-05-26T08:00:00Z\",\"motionConfidence\":0.95}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Invalid token returns 401 or 403 (or 201 on mock due to Prism limitations)', function () {",
+                  "    if (pm.environment.get('env') === 'mock') {",
+                  "        pm.expect([201, 401, 403]).to.include(pm.response.code);",
+                  "    } else {",
+                  "        pm.expect([401, 403]).to.include(pm.response.code);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03_Negative",
+      "item": [
+        {
+          "name": "8. POST /vision/detect - Missing required imageRef",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cameraId\":\"CAM-001\",\"timestamp\":\"2026-05-26T08:00:00Z\",\"motionConfidence\":0.95}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Missing imageRef returns 400 or 422 client error', function () {",
+                  "    pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Error response follows Problem Details format', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect([400, 422]).to.include(jsonData.status);",
+                  "    pm.expect(jsonData).to.have.property('detail');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. POST /vision/detect - Invalid cameraId format (Negative)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cameraId\":\"INVALID-GATE-ID\",\"imageRef\":\"s3://camera-frames/gate-01/test.jpg\",\"timestamp\":\"2026-05-26T08:00:00Z\",\"motionConfidence\":0.95}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Invalid cameraId returns 400 or 422 client error', function () {",
+                  "    pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04_Boundary_Reliability",
+      "item": [
+        {
+          "name": "10. POST /vision/detect - motionConfidence > 1.0 (Out of bounds)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cameraId\":\"CAM-001\",\"imageRef\":\"s3://camera-frames/gate-01/test.jpg\",\"timestamp\":\"2026-05-26T08:00:00Z\",\"motionConfidence\":1.5}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Confidence out of bounds returns 400 or 422 client error', function () {",
+                  "    pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Response follows ProblemDetails structure', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData.status).to.be.within(400, 499);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. GET /vision/detections - large pagination limit boundary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vision/detections?limit=1000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detections"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1000"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Large pagination limit boundary either succeeds capped or returns 400/422', function () {",
+                  "    pm.expect([200, 400, 422]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05_Consumer_side_Smoke",
+      "item": [
+        {
+          "name": "12. GET /health - Dependent Service Smoke Test (IoT Ingestion)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{dependentMockUrl}}/health",
+              "host": [
+                "{{dependentMockUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Dependent Mock Server Health returns 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Dependent mock health response is valid', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('ok');",
+                  "    pm.expect(jsonData.service).to.eql('iot-ingestion');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "13. POST /readings - Dependent Ingest Reading Smoke Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"device_id\":\"ESP32-GATE-01\",\"metric\":\"motion\",\"value\":1,\"timestamp\":\"2026-05-26T08:00:00Z\"}"
+            },
+            "url": {
+              "raw": "{{dependentMockUrl}}/readings",
+              "host": [
+                "{{dependentMockUrl}}"
+              ],
+              "path": [
+                "readings"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Dependent Mock Accept Reading successfully', function () {",
+                  "    pm.expect([201, 202]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Dependent mock reading returns created ID', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('reading_id');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06_Local_only_NonFunctional",
+      "item": [
+        {
+          "name": "14. POST /vision/detect - GPU response time is below 800ms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cameraId\":\"CAM-001\",\"imageRef\":\"s3://camera-frames/gate-01/20260526-080000.jpg\",\"timestamp\":\"2026-05-26T08:00:00Z\",\"motionConfidence\":0.95}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vision/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vision",
+                "detect"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('SLA response time check', function () {",
+                  "    if (pm.environment.get('env') === 'local') {",
+                  "        pm.expect(pm.response.responseTime).to.be.below(800);",
+                  "    } else {",
+                  "        pm.expect(true).to.be.true;",
+                  "        console.log('Skipped SLA test on mock environment');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

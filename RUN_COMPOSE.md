@@ -1,71 +1,55 @@
-# RUN_COMPOSE.md – Hướng dẫn chạy Lab 05
+# Hướng dẫn khởi chạy hệ thống (Docker Compose) - Team Vision
 
-Tài liệu này hướng dẫn người khác clone repo sạch và chạy lại stack Compose của Lab 05.
-
----
-
-## 1. Clone repo
-
-```bash
-git clone <repo-url>
-cd FIT4110_lab05_docker_compose_readiness
-```
+Tài liệu này hướng dẫn cách chạy toàn bộ stack AI Vision Service bằng Docker Compose.
 
 ---
 
-## 2. Cài dependencies cho Newman/Prism/Spectral (tuỳ chọn)
+## 1. Chuẩn bị môi trường
 
-```bash
-npm install
-```
+- Cài đặt Docker Desktop hoặc Docker Engine.
+- Cài đặt Node.js và npm.
+- Khởi tạo network external (nếu chưa có):
+  ```bash
+  docker network create class-net
+  ```
 
 ---
 
-## 3. Build & chạy stack Docker Compose
+## 2. Thiết lập biến môi trường
+
+Sao chép file `.env.example` thành `.env`:
 
 ```bash
-# Copy .env.example sang .env và chỉnh sửa nếu cần
 cp .env.example .env
+```
 
-# Build images (nếu chưa có) và khởi động các container trong nền
+Kiểm tra và cấu hình lại `.env` nếu cần (VD: đổi port).
+
+---
+
+## 3. Khởi chạy toàn bộ hệ thống
+
+Chạy lệnh Compose để build và khởi động Database, AI Service và API:
+
+```bash
 docker compose up -d --build
 ```
 
-Lệnh trên sẽ tạo các container:
-
-- `fit4110-db-lab05` (PostgreSQL)
-- `fit4110-ai-lab05` (AI service mẫu chạy port 9000)
-- `fit4110-api-lab05` (API FastAPI trên port 8000)
-
-Theo dõi log:
+Kiểm tra trạng thái các container:
 
 ```bash
+docker compose ps
 docker compose logs -f
-```
-
-Sau vài giây, kiểm tra health của mỗi service:
-
-```bash
-# API
-curl http://localhost:8000/health
-
-# AI service
-curl http://localhost:9000/health
-
-# DB readiness
-docker exec -it fit4110-db-lab05 pg_isready -U $POSTGRES_USER
-```
-
-Bạn cũng có thể truy cập endpoint `/predict` của AI service để xem kết quả mẫu:
-
-```bash
-curl -X POST http://localhost:9000/predict
 ```
 
 ---
 
-## 4. Chạy Newman test trên stack Compose (tuỳ chọn)
+## 4. Kiểm tra thủ công (Readiness)
 
+API của hệ thống sẽ chạy ở `http://localhost:8000`. Kiểm tra trạng thái:
+
+```bash
+curl http://localhost:8000/health
 ```bash
 npm run test:compose
 ```

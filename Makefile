@@ -10,11 +10,11 @@ lint:
 
 # Build Docker image for API only
 build:
-	docker build -t fit4110/iot-ingestion:lab05 .
+	docker build -t fit4110/team-vision:lab05 .
 
 # Run API container standalone (not via compose)
 run:
-	docker run --rm --name fit4110-api-lab05 -p 8000:8000 --env-file .env.example fit4110/iot-ingestion:lab05
+	docker run --rm --name fit4110-vision-api-lab05 -p 8000:8000 --env-file .env.example fit4110/team-vision:lab05
 
 # Compose commands
 compose-up:
@@ -28,4 +28,4 @@ logs:
 
 # Run Newman tests on compose stack
 test-compose:
-	npm run test:compose
+	npm run test:local

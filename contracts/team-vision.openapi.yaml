@@ -1,0 +1,906 @@
+openapi: 3.1.0
+info:
+  title: Smart Campus — AI Vision API Contract (B4)
+  version: 1.0.0
+  description: |
+    Hợp đồng API chính thức của AI Vision Service (B4).
+    Service này đóng vai trò Provider, cung cấp dịch vụ phân tích hình ảnh và đối sánh khuôn mặt
+    cho Camera Stream (B2 - Consumer) và Core Business (B6 - Consumer).
+  contact:
+    name: FIT4110 AI Vision Team B4
+    email: b4-aivision@example.edu.vn
+servers:
+  - url: http://localhost:4010
+    description: Prism mock server
+  - url: https://api.campus.local/vision
+    description: Class network gateway placeholder
+tags:
+  - name: health
+    description: Kiểm tra trạng thái hoạt động của AI Vision
+  - name: detection
+    description: Các API phân tích vật thể và theo dõi kết quả nhận diện
+  - name: identification
+    description: Các API đối sánh khuôn mặt định danh nhân viên/sinh viên
+  - name: models
+    description: Tra cứu thông tin danh mục mô hình AI đang chạy
+  - name: alerts
+    description: Quản lý cảnh báo từ hệ thống AI Vision
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Kiểm tra trạng thái service
+      description: Endpoint kiểm tra service AI Vision còn hoạt động bình thường hay không.
+      tags: [health]
+      security: []
+      responses:
+        '200':
+          description: Service đang hoạt động ổn định
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              examples:
+                ok:
+                  value:
+                    status: ok
+                    service: ai-vision-service
+                    time: '2026-05-26T08:00:00Z'
+
+  /vision/detect:
+    post:
+      operationId: analyzeMotionFrame
+      summary: Gửi frame ảnh chụp camera khi phát hiện chuyển động để phân tích vật thể
+      description: |
+        Camera Stream (B2) gọi API này khi phát hiện chuyển động.
+        Yêu cầu truyền imageRef (đường dẫn lưu trữ của ảnh).
+        AI Vision trả về thông tin vật thể phát hiện được và mức độ rủi ro tương ứng.
+      tags: [detection]
+      parameters:
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          description: Mã định danh luồng giao dịch để audit và trace log.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetectRequest'
+            examples:
+              personDetected:
+                value:
+                  cameraId: CAM-001
+                  imageRef: s3://camera-frames/gate-01/20260526-080000.jpg
+                  timestamp: '2026-05-26T08:00:00Z'
+                  motionConfidence: 0.95
+      responses:
+        '201':
+          description: Phân tích thành công, trả về danh sách vật thể phát hiện được
+          headers:
+            Location:
+              description: URI để xem chi tiết kết quả nhận diện vừa tạo.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectDetectionResult'
+              examples:
+                detected:
+                  value:
+                    detectionId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
+                    cameraId: CAM-001
+                    detectionType: OBJECT
+                    detectedObjects:
+                      - label: PERSON
+                        confidence: 0.98
+                        boundingBox:
+                          x: 120
+                          y: 240
+                          width: 80
+                          height: 180
+                    riskLevel: LOW
+                    modelVersion: yolov8x-coco-v2.1
+                    timestamp: '2026-05-26T08:00:01Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /vision/face-match:
+    post:
+      operationId: matchFaceImage
+      summary: Đối sánh khuôn mặt định danh từ hình ảnh
+      description: |
+        Core Business (B6) hoặc Access Gate gọi API này khi có người đi qua cổng soát vé.
+        AI Vision thực hiện đối sánh khuôn mặt trong ảnh với kho dữ liệu nhân viên.
+        Nếu độ chính xác dưới ngưỡng 90% (0.90), hệ thống vẫn trả về 200 OK với faceMatched là false và matchedPersonId là null.
+      tags: [identification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FaceMatchRequest'
+            examples:
+              matchRequest:
+                value:
+                  cameraId: CAM-002
+                  imageRef: s3://camera-frames/lobby/20260526-080100.jpg
+                  timestamp: '2026-05-26T08:01:00Z'
+      responses:
+        '201':
+          description: Thực hiện đối sánh thành công (có thể khớp hoặc không khớp)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaceMatchResult'
+              examples:
+                matchSuccess:
+                  value:
+                    detectionId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babd
+                    cameraId: CAM-002
+                    detectionType: FACE
+                    faceMatched: true
+                    matchedPersonId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2eeee
+                    confidence: 0.92
+                    status: success
+                    isLive: true
+                    riskLevel: LOW
+                    modelVersion: facenet-v3.0
+                    timestamp: '2026-05-26T08:01:02Z'
+                lowConfidence:
+                  value:
+                    detectionId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babe
+                    cameraId: CAM-002
+                    detectionType: FACE
+                    faceMatched: false
+                    confidence: 0.65
+                    status: low_confidence
+                    isLive: true
+                    riskLevel: MEDIUM
+                    modelVersion: facenet-v3.0
+                    timestamp: '2026-05-26T08:01:03Z'
+                    suggestions:
+                      - personId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2ffff
+                        confidence: 0.65
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /vision/detections/{detectionId}:
+    get:
+      operationId: getDetectionById
+      summary: Tra cứu chi tiết một kết quả nhận diện
+      description: |
+        Tra cứu chi tiết kết quả phân tích theo UUID.
+        Response trả về kiểu đa hình (Polymorphism) bằng cách dùng `oneOf` + `discriminator`
+        để phân biệt giữa kết quả nhận diện vật thể (OBJECT) và kết quả đối sánh khuôn mặt (FACE).
+      tags: [detection]
+      parameters:
+        - $ref: '#/components/parameters/DetectionId'
+      responses:
+        '200':
+          description: Chi tiết kết quả nhận diện
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectionResult'
+              examples:
+                objectDetail:
+                  value:
+                    detectionId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
+                    cameraId: CAM-001
+                    detectionType: OBJECT
+                    detectedObjects:
+                      - label: PERSON
+                        confidence: 0.98
+                        boundingBox:
+                          x: 120
+                          y: 240
+                          width: 80
+                          height: 180
+                    riskLevel: LOW
+                    modelVersion: yolov8x-coco-v2.1
+                    timestamp: '2026-05-26T08:00:01Z'
+                faceDetail:
+                  value:
+                    detectionId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babd
+                    cameraId: CAM-002
+                    detectionType: FACE
+                    faceMatched: true
+                    matchedPersonId: 0196fb3d-4ad7-7d1e-9f49-5d5148d2eeee
+                    confidence: 0.92
+                    status: success
+                    isLive: true
+                    riskLevel: LOW
+                    modelVersion: facenet-v3.0
+                    timestamp: '2026-05-26T08:01:02Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /vision/detections:
+    get:
+      operationId: listDetections
+      summary: Lấy danh sách toàn bộ kết quả phân tích
+      description: |
+        Lấy danh sách các kết quả nhận diện của hệ thống với Cursor-based Pagination.
+        Hỗ trợ filter theo loại nhận diện (detectionType).
+      tags: [detection]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: detectionType
+          in: query
+          required: false
+          description: Bộ lọc theo loại nhận diện.
+          schema:
+            type: string
+            enum: [OBJECT, FACE]
+      responses:
+        '200':
+          description: Danh sách kết quả phân tích
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectionsPage'
+              examples:
+                firstPage:
+                  value:
+                    items: []
+                    nextCursor: eyJ0aW1lc3RhbXAiOiIyMDI2LTA1LTI2VDA4OjAwOjAxWiIsImlkIjoiMDE5NmZiM2QtNGFkNy03ZDFlLTlmNDktNWQ1MTQ4ZDJiYWJjIn0=
+                    hasMore: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /vision/results/recent:
+    get:
+      operationId: listRecentResults
+      summary: Lấy danh sách các nhận diện gần đây
+      description: |
+        Endpoint cho Core Business (B6) lấy danh sách các nhận diện nguy hiểm hoặc mới nhất để cập nhật Dashboard.
+        Hỗ trợ phân trang dựa trên con trỏ (Cursor-based Pagination).
+      tags: [detection]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Danh sách nhận diện gần đây
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecentResultsPage'
+              examples:
+                recentList:
+                  value:
+                    items: []
+                    hasMore: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /vision/models/info:
+    get:
+      operationId: getModelsInfo
+      summary: Tra cứu danh sách các mô hình AI đang hoạt động
+      description: Tra cứu danh mục và thông số độ chính xác của các mô hình học máy đang active.
+      tags: [models]
+      security: []
+      responses:
+        '200':
+          description: Danh mục mô hình AI đang chạy
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelInfo'
+              examples:
+                models:
+                  value:
+                    - modelName: yolov8x-coco-v2.1
+                      version: v2.1.0
+                      accuracy: 0.915
+                      lastUpdated: '2026-04-10T12:00:00Z'
+                    - modelName: facenet-v3.0
+                      version: v3.0.2
+                      accuracy: 0.985
+                      lastUpdated: '2026-05-01T04:30:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+webhooks:
+  criticalDetectionAlert:
+    post:
+      operationId: onCriticalDetectionAlert
+      summary: Webhook thông báo khi phát hiện nguy cơ cao
+      description: |
+        AI Vision chủ động đẩy tin cảnh báo (callback) cho Core Business (B6) hoặc Notification Service (B7)
+        khi phát hiện các vật thể rủi ro cao (FIRE, SMOKE) hoặc phát hiện người lạ đột nhập vùng cấm.
+      tags: [alerts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetectionResult'
+      responses:
+        '200':
+          description: Consumer đã nhận webhook thành công và xử lý an toàn.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    DetectionId:
+      name: detectionId
+      in: path
+      required: true
+      description: UUID định danh của kết quả nhận diện.
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Con trỏ (mã hóa Base64) để lấy dữ liệu trang tiếp theo.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 500
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Số lượng bản ghi tối đa trên một trang.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    HealthStatus:
+      type: object
+      additionalProperties: false
+      required: [status, service, time]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          description: Trạng thái hoạt động.
+          example: ok
+        service:
+          type: string
+          minLength: 2
+          maxLength: 80
+          description: Tên của service.
+          example: ai-vision-service
+        time:
+          type: string
+          format: date-time
+          description: Thời điểm kiểm tra hệ thống.
+          example: '2026-05-26T08:00:00Z'
+
+    DetectRequest:
+      type: object
+      additionalProperties: false
+      required: [cameraId, imageRef, timestamp]
+      properties:
+        cameraId:
+          type: string
+          pattern: '^CAM-[0-9]{3}$'
+          description: Mã camera gửi frame.
+          example: CAM-001
+        imageRef:
+          type: string
+          format: uri
+          description: Đường dẫn lưu trữ đám mây của frame ảnh (S3/MinIO URI).
+          example: s3://camera-frames/gate-01/20260526-080000.jpg
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm ghi hình camera.
+          example: '2026-05-26T08:00:00Z'
+        motionConfidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: Độ tin cậy phát hiện chuyển động ở biên.
+          example: 0.95
+
+    FaceMatchRequest:
+      type: object
+      additionalProperties: false
+      required: [cameraId, imageRef, timestamp]
+      properties:
+        cameraId:
+          type: string
+          pattern: '^CAM-[0-9]{3}$'
+          description: Mã camera tại cổng kiểm soát.
+          example: CAM-002
+        imageRef:
+          type: string
+          format: uri
+          description: Đường dẫn lưu trữ ảnh khuôn mặt.
+          example: s3://camera-frames/lobby/20260526-080100.jpg
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm ghi nhận.
+          example: '2026-05-26T08:01:00Z'
+        faceEmbedding:
+          type: array
+          description: Chuỗi số đặc trưng khuôn mặt (tùy chọn).
+          items:
+            type: number
+          minItems: 128
+          maxItems: 512
+
+    DetectionResult:
+      oneOf:
+        - $ref: '#/components/schemas/ObjectDetectionResult'
+        - $ref: '#/components/schemas/FaceMatchResult'
+      discriminator:
+        propertyName: detectionType
+        mapping:
+          OBJECT: '#/components/schemas/ObjectDetectionResult'
+          FACE: '#/components/schemas/FaceMatchResult'
+
+    ObjectDetectionResult:
+      type: object
+      additionalProperties: false
+      required: [detectionId, cameraId, detectionType, detectedObjects, riskLevel, modelVersion, timestamp]
+      properties:
+        detectionId:
+          type: string
+          format: uuid
+          description: UUID của nhận diện.
+          example: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babc
+        cameraId:
+          type: string
+          pattern: '^CAM-[0-9]{3}$'
+          description: Mã camera.
+          example: CAM-001
+        detectionType:
+          type: string
+          const: OBJECT
+          description: Phân loại nhận diện (bắt buộc là OBJECT).
+          example: OBJECT
+        detectedObjects:
+          type: array
+          minItems: 0
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ObjectDetail'
+        riskLevel:
+          $ref: '#/components/schemas/AlertSeverity'
+        modelVersion:
+          type: string
+          minLength: 2
+          maxLength: 80
+          description: Phiên bản model AI xử lý.
+          example: yolov8x-coco-v2.1
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời gian hoàn tất phân tích.
+          example: '2026-05-26T08:00:01Z'
+
+    ObjectDetail:
+      type: object
+      additionalProperties: false
+      required: [label, confidence, boundingBox]
+      properties:
+        label:
+          type: string
+          enum: [PERSON, VEHICLE, FIRE, SMOKE, BAG, OTHER]
+          description: Loại vật thể phát hiện được.
+          example: PERSON
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: Độ chính xác của nhận diện.
+          example: 0.98
+        boundingBox:
+          $ref: '#/components/schemas/BoundingBox'
+
+    BoundingBox:
+      type: object
+      additionalProperties: false
+      required: [x, y, width, height]
+      properties:
+        x:
+          type: integer
+          minimum: 0
+          description: Tọa độ x của góc trên bên trái khung.
+          example: 120
+        y:
+          type: integer
+          minimum: 0
+          description: Tọa độ y của góc trên bên trái khung.
+          example: 240
+        width:
+          type: integer
+          minimum: 0
+          description: Chiều rộng khung bounding box.
+          example: 80
+        height:
+          type: integer
+          minimum: 0
+          description: Chiều cao khung bounding box.
+          example: 180
+
+    FaceMatchResult:
+      type: object
+      additionalProperties: false
+      required: [detectionId, cameraId, detectionType, faceMatched, confidence, status, isLive, riskLevel, modelVersion, timestamp]
+      properties:
+        detectionId:
+          type: string
+          format: uuid
+          description: UUID của nhận diện khuôn mặt.
+          example: 0196fb3d-4ad7-7d1e-9f49-5d5148d2babd
+        cameraId:
+          type: string
+          pattern: '^CAM-[0-9]{3}$'
+          description: Mã camera ghi nhận.
+          example: CAM-002
+        detectionType:
+          type: string
+          const: FACE
+          description: Phân loại nhận diện (bắt buộc là FACE).
+          example: FACE
+        faceMatched:
+          type: boolean
+          description: Kết quả đối sánh khuôn mặt có thành công (khớp người dùng) hay không.
+          example: true
+        matchedPersonId:
+          type: string
+          format: uuid
+          description: UUID của nhân viên/sinh viên được đối sánh khớp, null nếu không khớp.
+          example: 0196fb3d-4ad7-7d1e-9f49-5d5148d2eeee
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: Mức độ tin cậy của việc so khớp.
+          example: 0.92
+        status:
+          type: string
+          enum: [success, low_confidence, no_face_detected]
+          description: Trạng thái phân tích chi tiết của AI.
+          example: success
+        isLive:
+          type: boolean
+          description: Kết quả kiểm tra chống giả mạo (Liveness Detection). True nếu là khuôn mặt người thật, False nếu là ảnh chụp qua màn hình/giấy.
+          example: true
+        riskLevel:
+          $ref: '#/components/schemas/AlertSeverity'
+        modelVersion:
+          type: string
+          minLength: 2
+          maxLength: 80
+          description: Phiên bản model AI so khớp khuôn mặt.
+          example: facenet-v3.0
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời gian hoàn tất so khớp.
+          example: '2026-05-26T08:01:02Z'
+        suggestions:
+          type: array
+          minItems: 0
+          maxItems: 5
+          description: Danh sách các khuôn mặt có độ tin cậy gần nhất nếu không khớp tuyệt đối.
+          items:
+            $ref: '#/components/schemas/FaceSuggestion'
+
+    FaceSuggestion:
+      type: object
+      additionalProperties: false
+      required: [personId, confidence]
+      properties:
+        personId:
+          type: string
+          format: uuid
+          description: ID của ứng viên đề xuất.
+          example: 0196fb3d-4ad7-7d1e-9f49-5d5148d2ffff
+        confidence:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: Độ tin cậy đề xuất.
+          example: 0.65
+
+    AlertSeverity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+      description: Mức độ nghiêm trọng của rủi ro được phát hiện.
+      example: LOW
+
+    ModelInfo:
+      type: object
+      additionalProperties: false
+      required: [modelName, version, accuracy, lastUpdated]
+      properties:
+        modelName:
+          type: string
+          description: Tên mô hình AI.
+          example: yolov8x-coco-v2.1
+        version:
+          type: string
+          description: Phiên bản mô hình.
+          example: v2.1.0
+        accuracy:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          description: Chỉ số chính xác (mAP hoặc accuracy).
+          example: 0.915
+        lastUpdated:
+          type: string
+          format: date-time
+          description: Thời điểm cập nhật cuối cùng.
+          example: '2026-04-10T12:00:00Z'
+
+    DetectionsPage:
+      type: object
+      additionalProperties: false
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          minItems: 0
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/DetectionResult'
+        nextCursor:
+          type: [string, "null"]
+          description: Cursor để lấy trang tiếp theo, null nếu hết dữ liệu.
+          example: eyJ0aW1lc3RhbXAiOiIyMDI2LTA1LTI2VDA4OjAwOjAxWiIsImlkIjoiMDE5NmZiM2QtNGFkNy03ZDFlLTlmNDktNWQ1MTQ4ZDJiYWJjIn0=
+        hasMore:
+          type: boolean
+          description: Có còn dữ liệu ở các trang sau không.
+          example: true
+
+    RecentResultsPage:
+      type: object
+      additionalProperties: false
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          minItems: 0
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/DetectionResult'
+        nextCursor:
+          type: [string, "null"]
+          description: Cursor trang sau, null nếu hết trang.
+        hasMore:
+          type: boolean
+          description: Có còn dữ liệu không.
+          example: false
+
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI định danh loại lỗi.
+          example: https://campus.local/errors/validation
+        title:
+          type: string
+          minLength: 3
+          maxLength: 120
+          description: Tiêu đề lỗi ngắn gọn.
+          example: Dữ liệu không hợp lệ
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+          description: HTTP status code.
+          example: 400
+        detail:
+          type: string
+          maxLength: 500
+          description: Mô tả chi tiết lỗi.
+          example: Field cameraId không đúng định dạng pattern quy định
+        instance:
+          type: string
+          description: URI của request gây lỗi.
+          example: /vision/detect
+        errors:
+          type: array
+          minItems: 0
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code, message]
+            properties:
+              field:
+                type: string
+                minLength: 1
+                maxLength: 80
+                example: cameraId
+              code:
+                type: string
+                minLength: 2
+                maxLength: 80
+                example: PATTERN_MISMATCH
+              message:
+                type: string
+                minLength: 3
+                maxLength: 200
+                example: "cameraId phải có định dạng CAM-XXX (ví dụ: CAM-001)"
+
+  responses:
+    BadRequest:
+      description: Dữ liệu đầu vào sai định dạng JSON Schema
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/validation
+            title: Dữ liệu không hợp lệ
+            status: 400
+            detail: Payload JSON gửi lên không đúng định dạng quy định
+            instance: /vision/detect
+            errors:
+              - field: imageRef
+                code: REQUIRED_FIELD_MISSING
+                message: Trường imageRef là bắt buộc và không được để trống
+
+    Unauthorized:
+      description: Thiếu hoặc sai thông tin xác thực Bearer token
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/unauthorized
+            title: Chưa xác thực
+            status: 401
+            detail: Thiếu Bearer JWT token trong header Authorization
+            instance: /vision/results/recent
+            errors: []
+
+    Forbidden:
+      description: Không có quyền thực hiện truy cập
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/forbidden
+            title: Bị từ chối truy cập
+            status: 403
+            detail: Quyền của client không được phép gọi endpoint này
+            instance: /vision/results/recent
+            errors: []
+
+    NotFound:
+      description: Không tìm thấy kết quả nhận diện yêu cầu
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/not-found
+            title: Không tìm thấy tài nguyên
+            status: 404
+            detail: Mã nhận diện detectionId yêu cầu không tồn tại trên hệ thống
+            instance: /vision/detections/0196fb3d-4ad7-7d1e-9f49-5d5148d2bbbb
+            errors: []
+
+    Conflict:
+      description: Trùng lặp UUID giao dịch
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/conflict
+            title: Xung đột dữ liệu
+            status: 409
+            detail: Trùng lặp mã định danh giao dịch đã được xử lý trước đó
+            instance: /vision/detect
+            errors: []
+
+    UnprocessableEntity:
+      description: Payload hợp lệ về cú pháp nhưng vi phạm quy tắc nghiệp vụ
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/unprocessable
+            title: Vi phạm quy tắc nghiệp vụ đầu vào
+            status: 422
+            detail: Mã camera không tồn tại trên hệ thống quản lý Campus
+            instance: /vision/detect
+            errors:
+              - field: cameraId
+                code: CAMERA_NOT_FOUND
+                message: cameraId CAM-999 không tồn tại hoặc đã bị hủy kích hoạt
+
+    TooManyRequests:
+      description: Client đã gửi quá nhiều request vượt quá giới hạn Rate Limit
+      headers:
+        Retry-After:
+          description: Số giây Client cần chờ trước khi có thể thử lại.
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/rate-limit
+            title: Quá giới hạn tần suất yêu cầu
+            status: 429
+            detail: Hệ thống AI đang xử lý tối đa tải. Vui lòng thử lại sau.
+            instance: /vision/face-match
+            errors: []
+
+    InternalServerError:
+      description: Lỗi hệ thống bất ngờ của server AI
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://campus.local/errors/internal
+            title: Lỗi hệ thống phía máy chủ
+            status: 500
+            detail: Lỗi xảy ra trong quá trình khởi tạo luồng xử lý nhận diện GPU
+            instance: /vision/detect
+            errors: []

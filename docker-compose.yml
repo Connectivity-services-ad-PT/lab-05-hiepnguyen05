@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: fit4110-api-lab05
+    container_name: fit4110-vision-api-lab05
     env_file:
       - .env
     depends_on:
@@ -44,22 +44,27 @@ services:
       timeout: 5s
       retries: 5
 
-  # AI service mẫu dùng Python HTTP server hoặc FastAPI
+  # AI service
   ai-service:
-    image: python:3.11-slim
+    build:
+      context: ./src/ai_service
+      dockerfile: Dockerfile
     container_name: fit4110-ai-lab05
-    working_dir: /service
-    volumes:
-      - ./src/ai_service:/service
-    command: ["python", "main.py"]
     networks:
       - team-internal
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import requests; import sys; sys.exit(0) if requests.get('http://localhost:9000/health').status_code == 200 else sys.exit(1)\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; sys.exit(0) if urllib.request.urlopen('http://localhost:9000/health').getcode() == 200 else sys.exit(1)\""]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 20s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
 networks:
   team-internal:
